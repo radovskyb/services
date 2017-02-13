@@ -1,4 +1,4 @@
-package user
+package datastore
 
 import (
 	"errors"
@@ -12,7 +12,7 @@ var (
 	ErrUserNotFound      = errors.New("error: user not found")
 )
 
-type UserStore interface {
+type UserRepository interface {
 	Create(u *user.User) error
 	Get(id int64) (*user.User, error)
 	GetByEmail(email string) (*user.User, error)

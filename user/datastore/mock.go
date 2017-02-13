@@ -1,4 +1,4 @@
-package user
+package datastore
 
 import (
 	"sync"
@@ -6,7 +6,7 @@ import (
 	"github.com/radovskyb/services/user"
 )
 
-type mockStore struct {
+type mockRepo struct {
 	mu    *sync.Mutex          // Protects the following.
 	idCnt int64                // Auto incrementing id counter.
 	users map[int64]*user.User // Id to User.
@@ -16,8 +16,8 @@ type mockStore struct {
 	usernames map[string]*user.User
 }
 
-func NewMockStore() UserStore {
-	return &mockStore{
+func NewMockRepo() UserRepository {
+	return &mockRepo{
 		mu:        new(sync.Mutex),
 		users:     make(map[int64]*user.User),
 		emails:    make(map[string]*user.User),
@@ -25,7 +25,7 @@ func NewMockStore() UserStore {
 	}
 }
 
-func (s *mockStore) Create(u *user.User) error {
+func (s *mockRepo) Create(u *user.User) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -52,7 +52,10 @@ func (s *mockStore) Create(u *user.User) error {
 	return nil
 }
 
-func (s *mockStore) Get(id int64) (*user.User, error) {
+func (s *mockRepo) Get(id int64) (*user.User, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	// Make sure the user exists.
 	u, found := s.users[id]
 	if !found {
@@ -61,7 +64,10 @@ func (s *mockStore) Get(id int64) (*user.User, error) {
 	return u, nil
 }
 
-func (s *mockStore) GetByEmail(email string) (*user.User, error) {
+func (s *mockRepo) GetByEmail(email string) (*user.User, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	// Make sure the user exists.
 	u, found := s.emails[email]
 	if !found {
@@ -70,7 +76,10 @@ func (s *mockStore) GetByEmail(email string) (*user.User, error) {
 	return u, nil
 }
 
-func (s *mockStore) GetByUsername(username string) (*user.User, error) {
+func (s *mockRepo) GetByUsername(username string) (*user.User, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	// Make sure the user exists.
 	u, found := s.usernames[username]
 	if !found {
@@ -79,7 +88,10 @@ func (s *mockStore) GetByUsername(username string) (*user.User, error) {
 	return u, nil
 }
 
-func (s *mockStore) Update(u *user.User) error {
+func (s *mockRepo) Update(u *user.User) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	// Check if the user exists.
 	old, found := s.users[u.Id]
 	if !found {
@@ -112,7 +124,10 @@ func (s *mockStore) Update(u *user.User) error {
 	return nil
 }
 
-func (s *mockStore) Delete(id int64) error {
+func (s *mockRepo) Delete(id int64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	u, found := s.users[id]
 	if !found {
 		return ErrUserNotFound

@@ -1,4 +1,4 @@
-package user
+package datastore
 
 import (
 	"database/sql"
@@ -15,17 +15,17 @@ const createUserTableSQL = `CREATE TABLE IF NOT EXISTS users (
 	password VARCHAR(72) NOT NULL
 );`
 
-type mysqlStore struct{ db *sql.DB }
+type mysqlRepo struct{ db *sql.DB }
 
-func NewMySQLStore(db *sql.DB) (UserStore, error) {
+func NewMySQLRepo(db *sql.DB) (UserRepository, error) {
 	_, err := db.Exec(createUserTableSQL)
-	return &mysqlStore{db}, err
+	return &mysqlRepo{db}, err
 }
 
-func (s *mysqlStore) Create(u *user.User) error {
+func (s *mysqlRepo) Create(u *user.User) error {
 	_, err := s.db.Exec(
-		"INSERT INTO users (email, username) VALUES (?, ?)",
-		u.Email, u.Username,
+		"INSERT INTO users (email, username, password) VALUES (?, ?, ?)",
+		u.Email, u.Username, u.Password,
 	)
 	if err != nil {
 		mysqlErr, ok := err.(*mysql.MySQLError)
@@ -59,7 +59,7 @@ func (s *mysqlStore) Create(u *user.User) error {
 	return err
 }
 
-func (s *mysqlStore) Get(id int64) (*user.User, error) {
+func (s *mysqlRepo) Get(id int64) (*user.User, error) {
 	u := new(user.User)
 	row := s.db.QueryRow("SELECT * FROM users WHERE id = ?", id)
 	err := row.Scan(&u.Id, &u.Email, &u.Username, &u.Password)
@@ -69,7 +69,7 @@ func (s *mysqlStore) Get(id int64) (*user.User, error) {
 	return u, err
 }
 
-func (s *mysqlStore) GetByEmail(email string) (*user.User, error) {
+func (s *mysqlRepo) GetByEmail(email string) (*user.User, error) {
 	u := new(user.User)
 	row := s.db.QueryRow("SELECT * FROM users WHERE email = ?", email)
 	err := row.Scan(&u.Id, &u.Email, &u.Username, &u.Password)
@@ -79,7 +79,7 @@ func (s *mysqlStore) GetByEmail(email string) (*user.User, error) {
 	return u, err
 }
 
-func (s *mysqlStore) GetByUsername(username string) (*user.User, error) {
+func (s *mysqlRepo) GetByUsername(username string) (*user.User, error) {
 	u := new(user.User)
 	row := s.db.QueryRow("SELECT * FROM users WHERE username = ?", username)
 	err := row.Scan(&u.Id, &u.Email, &u.Username, &u.Password)
@@ -89,7 +89,7 @@ func (s *mysqlStore) GetByUsername(username string) (*user.User, error) {
 	return u, err
 }
 
-func (s *mysqlStore) Update(u *user.User) error {
+func (s *mysqlRepo) Update(u *user.User) error {
 	_, err := s.db.Exec(
 		"UPDATE users SET email = ?, username = ?, password = ? WHERE id = ?",
 		u.Email, u.Username, u.Password, u.Id,
@@ -97,7 +97,7 @@ func (s *mysqlStore) Update(u *user.User) error {
 	return err
 }
 
-func (s *mysqlStore) Delete(id int64) error {
+func (s *mysqlRepo) Delete(id int64) error {
 	res, err := s.db.Exec("DELETE FROM users WHERE id = ?", id)
 	affecteded, err := res.RowsAffected()
 	if err != nil {

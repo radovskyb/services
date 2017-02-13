@@ -1,4 +1,4 @@
-package user
+package datastore
 
 import (
 	"database/sql"
@@ -12,13 +12,14 @@ import (
 const (
 	testEmail    = "radovskyb@gmail.com"
 	testUsername = "radovskyb"
+	testPassword = "password123" // Only use bcrypt in production database.
 
 	// Constants used for testing with a real database.
 	dsn              = "root:root@/golang"
 	dropUserTableSQL = `DROP TABLE IF EXISTS users;`
 )
 
-func mysqlStoreSetup(t *testing.T) (UserStore, func()) {
+func mysqlRepoSetup(t *testing.T) (UserRepository, func()) {
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		t.Fatal(err)
@@ -46,42 +47,46 @@ func mysqlStoreSetup(t *testing.T) (UserStore, func()) {
 
 	// Insert a user into the database.
 	_, err = db.Exec(
-		"INSERT INTO users (email, username) VALUES (?, ?)",
-		testEmail, testUsername,
+		"INSERT INTO users (email, username, password) VALUES (?, ?, ?)",
+		testEmail, testUsername, testPassword,
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &mysqlStore{db}, teardown
+	return &mysqlRepo{db}, teardown
 }
 
-func mockStoreSetup(t *testing.T) (UserStore, func()) {
-	us := NewMockStore()
+func mockRepoSetup(t *testing.T) (UserRepository, func()) {
+	us := NewMockRepo()
 	// Insert a user into the database.
-	u := &user.User{Email: testEmail, Username: testUsername}
+	u := &user.User{
+		Email:    testEmail,
+		Username: testUsername,
+		Password: testPassword,
+	}
 	if err := us.Create(u); err != nil {
 		t.Fatal(err)
 	}
 	teardown := func() {
-		us = NewMockStore()
+		us = NewMockRepo()
 	}
 	return us, teardown
 }
 
-var setupDB func(t *testing.T) (UserStore, func())
+var setupDB func(t *testing.T) (UserRepository, func())
 
 func TestMain(m *testing.M) {
 	all := flag.Bool("all", false, "run all database implementations")
 	flag.Parse()
 	if !*all {
-		setupDB = mockStoreSetup
+		setupDB = mockRepoSetup
 		os.Exit(m.Run())
 	}
 	testCases := []struct {
-		setup func(t *testing.T) (UserStore, func())
+		setup func(t *testing.T) (UserRepository, func())
 	}{
-		{mockStoreSetup},
-		{mysqlStoreSetup},
+		{mockRepoSetup},
+		{mysqlRepoSetup},
 	}
 	for _, tc := range testCases {
 		setupDB = tc.setup
@@ -117,6 +122,7 @@ func TestCreateUser(t *testing.T) {
 	u := &user.User{
 		Email:    testEmail,
 		Username: testUsername,
+		Password: testPassword,
 	}
 
 	err := us.Create(u)
