@@ -88,6 +88,7 @@ func (s *mockRepo) GetByUsername(username string) (*user.User, error) {
 	return u, nil
 }
 
+// TODO: Find fix for memory changing before an update call issue.
 func (s *mockRepo) Update(u *user.User) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -98,29 +99,35 @@ func (s *mockRepo) Update(u *user.User) error {
 		return ErrUserNotFound
 	}
 	// Update the email's key.
-	if old.Email != u.Email {
-		// Make sure the new email doesn't already exist.
-		if _, found := s.emails[u.Email]; found {
+	//
+	// Make sure the new email doesn't already exist.
+	if u2, found := s.emails[u.Email]; found {
+		if u2.Id != old.Id {
 			return ErrDuplicateEmail
 		}
-		// Delete the old email.
-		delete(s.emails, old.Email)
-		// Add the new email.
-		s.emails[u.Email] = u
 	}
 	// Update the username's key.
-	if old.Username != u.Username {
-		// Make sure the new username doesn't already exist.
-		if _, found := s.usernames[u.Username]; found {
+	//
+	// Make sure the new username doesn't already exist.
+	if u2, found := s.usernames[u.Username]; found {
+		if u2.Id != old.Id {
 			return ErrDuplicateUsername
 		}
-		// Delete the old username.
-		delete(s.usernames, old.Username)
-		// Add the new username.
-		s.usernames[u.Username] = u
 	}
+
 	// Update the user.
 	s.users[u.Id] = u
+
+	// Delete the old email.
+	delete(s.emails, old.Email)
+	// Add the new email.
+	s.emails[u.Email] = u
+
+	// Delete the old username.
+	delete(s.usernames, old.Username)
+	// Add the new username.
+	s.usernames[u.Username] = u
+
 	return nil
 }
 
@@ -135,5 +142,6 @@ func (s *mockRepo) Delete(id int64) error {
 	delete(s.users, id)
 	delete(s.emails, u.Email)
 	delete(s.usernames, u.Username)
+
 	return nil
 }

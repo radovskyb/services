@@ -2,7 +2,7 @@ package datastore
 
 import (
 	"database/sql"
-	"errors"
+	"fmt"
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/radovskyb/services/user"
@@ -29,34 +29,16 @@ func (s *mysqlRepo) Create(u *user.User) error {
 	)
 	if err != nil {
 		mysqlErr, ok := err.(*mysql.MySQLError)
-		if !ok {
-			return errors.New("error converting to mysql error")
+		if ok && mysqlErr.Number == 1062 {
+			if dupeErr := s.checkDupes(u); dupeErr != nil {
+				return dupeErr
+			}
 		}
-		if mysqlErr.Number == 1062 {
-			var exists bool
-			// Check if the email already exists.
-			err := s.db.QueryRow(
-				"SELECT EXISTS(SELECT 1 FROM users WHERE email = ?)", u.Email,
-			).Scan(&exists)
-			if err != nil && err != sql.ErrNoRows {
-				return err
-			}
-			if exists {
-				return ErrDuplicateEmail
-			}
-			// Check if the username already exists.
-			err = s.db.QueryRow(
-				"SELECT EXISTS(SELECT 1 FROM users WHERE username = ?)", u.Username,
-			).Scan(&exists)
-			if err != nil && err != sql.ErrNoRows {
-				return err
-			}
-			if exists {
-				return ErrDuplicateUsername
-			}
+		if !ok {
+			return fmt.Errorf("error converting to mysql error: %s", err.Error())
 		}
 	}
-	return err
+	return nil
 }
 
 func (s *mysqlRepo) Get(id int64) (*user.User, error) {
@@ -94,17 +76,53 @@ func (s *mysqlRepo) Update(u *user.User) error {
 		"UPDATE users SET email = ?, username = ?, password = ? WHERE id = ?",
 		u.Email, u.Username, u.Password, u.Id,
 	)
-	return err
+	if err != nil {
+		mysqlErr, ok := err.(*mysql.MySQLError)
+		if ok && mysqlErr.Number == 1062 {
+			if dupeErr := s.checkDupes(u); dupeErr != nil {
+				return dupeErr
+			}
+		}
+		if !ok {
+			return fmt.Errorf("error converting to mysql error: %s", err.Error())
+		}
+	}
+	return nil
 }
 
 func (s *mysqlRepo) Delete(id int64) error {
 	res, err := s.db.Exec("DELETE FROM users WHERE id = ?", id)
-	affecteded, err := res.RowsAffected()
+	affected, err := res.RowsAffected()
 	if err != nil {
 		return err
 	}
-	if affecteded != 1 {
+	if affected != 1 {
 		return ErrUserNotFound
+	}
+	return nil
+}
+
+func (s *mysqlRepo) checkDupes(u *user.User) error {
+	var id int64
+	// Check if the email already exists.
+	err := s.db.QueryRow(
+		"SELECT id FROM users WHERE email = ?", u.Email,
+	).Scan(&id)
+	if err != nil && err != sql.ErrNoRows {
+		return err
+	}
+	if id != u.Id {
+		return ErrDuplicateEmail
+	}
+	// Check if the username already exists.
+	err = s.db.QueryRow(
+		"SELECT id FROM users WHERE username = ?", u.Username,
+	).Scan(&id)
+	if err != nil && err != sql.ErrNoRows {
+		return err
+	}
+	if id != u.Id {
+		return ErrDuplicateUsername
 	}
 	return nil
 }

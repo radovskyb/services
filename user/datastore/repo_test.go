@@ -3,6 +3,7 @@ package datastore
 import (
 	"database/sql"
 	"flag"
+	"fmt"
 	"os"
 	"testing"
 
@@ -83,12 +84,14 @@ func TestMain(m *testing.M) {
 		os.Exit(m.Run())
 	}
 	testCases := []struct {
+		name  string
 		setup func(t *testing.T) (UserRepository, func())
 	}{
-		{mockRepoSetup},
-		{mysqlRepoSetup},
+		{"mock", mockRepoSetup},
+		{"mysql", mysqlRepoSetup},
 	}
 	for _, tc := range testCases {
+		fmt.Println(tc.name)
 		setupDB = tc.setup
 		code := m.Run()
 		if code != 0 {
@@ -163,11 +166,135 @@ func TestCreateUser(t *testing.T) {
 	}
 }
 
-// Split CreateUser into the following tests:
-// func TestCantCreateWithEmptyFields(t *testing.T) {}
-// func TestCantCreateWithDupEmail(t *testing.T) {}
-// func TestCantCreateWithDupUsername(t *testing.T) {}
-// func TestCreateUserSuccessfully(t *testing.T) {}
+func TestUpdateUser(t *testing.T) {
+	us, teardown := setupDB(t)
+	defer teardown()
 
-// func TestUpdateUser(t *testing.T) {} ...
+	var (
+		newEmail = "example_user@gmail.com"
+		// newUsername = "example_user"
+		// newPassword = "password456"
+	)
+
+	// Create a new user.
+	u, err := us.GetByEmail(testEmail)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Update the email.
+	//
+	// Create a new user with u's values but with a new email.
+	//
+	// Changing the email directly would intefere with the mock
+	// database since it accepts a pointer.
+	//
+	// TODO: Come up with way to fix for mock database.
+	u = &user.User{
+		Id:       u.Id,
+		Email:    newEmail,
+		Username: u.Username,
+		Password: u.Password,
+	}
+	err = us.Update(u)
+	if err != nil {
+		t.Error(err)
+	}
+
+	_, err = us.GetByEmail(testEmail)
+	if err != ErrUserNotFound {
+		t.Errorf("expected not to find user for email %s", testEmail)
+	}
+
+	// 	// Update the username.
+	// 	u.Username = newUsername
+	// 	err = us.Update(u)
+	// 	if err != nil {
+	// 		t.Error(err)
+	// 	}
+
+	// 	// Update the password.
+	// 	u.Password = newPassword
+	// 	err = us.Update(u)
+	// 	if err != nil {
+	// 		t.Error(err)
+	// 	}
+}
+
+func TestUpdateUserWithDupEmail(t *testing.T) {
+	us, teardown := setupDB(t)
+	defer teardown()
+
+	var (
+		email    = "example_user@gmail.com"
+		username = "example_user"
+		password = "password123"
+	)
+
+	u := &user.User{
+		Email:    email,
+		Username: username,
+		Password: password,
+	}
+
+	// Create a new user.
+	err := us.Create(u)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Get the user that's already in the database.
+	u1, err := us.GetByEmail(testEmail)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Set the email to another email that already exists.
+	u1.Email = email
+
+	// Set the email to another email that already exists.
+	err = us.Update(u1)
+	if err != ErrDuplicateEmail {
+		t.Errorf("expected err to be ErrDuplicateEmail, got %v", err)
+	}
+}
+
+func TestUpdateUserWithDupUsername(t *testing.T) {
+	us, teardown := setupDB(t)
+	defer teardown()
+
+	var (
+		email    = "example_user@gmail.com"
+		username = "example_user"
+		password = "password123"
+	)
+
+	u := &user.User{
+		Email:    email,
+		Username: username,
+		Password: password,
+	}
+
+	// Create a new user.
+	err := us.Create(u)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Get the user that's already in the database.
+	u1, err := us.GetByEmail(testEmail)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Set the username to another username that already exists.
+	u1.Username = username
+
+	// Set the email to another email that already exists.
+	err = us.Update(u1)
+	if err != ErrDuplicateUsername {
+		t.Errorf("expected err to be ErrDuplicateUsername, got %v", err)
+	}
+}
+
 // func TestDeleteUser(t *testing.T) {} ...
