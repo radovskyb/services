@@ -16,6 +16,7 @@ type UserStore interface {
 	Create(u *user.User) error
 	Get(id int64) (*user.User, error)
 	GetByEmail(email string) (*user.User, error)
+	GetByUsername(username string) (*user.User, error)
 	Update(u *user.User) error
 	Delete(id int64) error
 }

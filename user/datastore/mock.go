@@ -70,6 +70,15 @@ func (s *mockStore) GetByEmail(email string) (*user.User, error) {
 	return u, nil
 }
 
+func (s *mockStore) GetByUsername(username string) (*user.User, error) {
+	// Make sure the user exists.
+	u, found := s.usernames[username]
+	if !found {
+		return nil, ErrUserNotFound
+	}
+	return u, nil
+}
+
 func (s *mockStore) Update(u *user.User) error {
 	// Check if the user exists.
 	old, found := s.users[u.Id]

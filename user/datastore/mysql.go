@@ -11,7 +11,8 @@ import (
 const createUserTableSQL = `CREATE TABLE IF NOT EXISTS users (
 	id INTEGER PRIMARY KEY AUTO_INCREMENT,
 	email VARCHAR(255) UNIQUE NOT NULL,
-	username VARCHAR(25) UNIQUE NOT NULL
+	username VARCHAR(25) UNIQUE NOT NULL,
+	password VARCHAR(72) NOT NULL
 );`
 
 type mysqlStore struct{ db *sql.DB }
@@ -61,7 +62,7 @@ func (s *mysqlStore) Create(u *user.User) error {
 func (s *mysqlStore) Get(id int64) (*user.User, error) {
 	u := new(user.User)
 	row := s.db.QueryRow("SELECT * FROM users WHERE id = ?", id)
-	err := row.Scan(&u.Id, &u.Email, &u.Username)
+	err := row.Scan(&u.Id, &u.Email, &u.Username, &u.Password)
 	if err == sql.ErrNoRows {
 		return nil, ErrUserNotFound
 	}
@@ -71,7 +72,17 @@ func (s *mysqlStore) Get(id int64) (*user.User, error) {
 func (s *mysqlStore) GetByEmail(email string) (*user.User, error) {
 	u := new(user.User)
 	row := s.db.QueryRow("SELECT * FROM users WHERE email = ?", email)
-	err := row.Scan(&u.Id, &u.Email, &u.Username)
+	err := row.Scan(&u.Id, &u.Email, &u.Username, &u.Password)
+	if err == sql.ErrNoRows {
+		return nil, ErrUserNotFound
+	}
+	return u, err
+}
+
+func (s *mysqlStore) GetByUsername(username string) (*user.User, error) {
+	u := new(user.User)
+	row := s.db.QueryRow("SELECT * FROM users WHERE username = ?", username)
+	err := row.Scan(&u.Id, &u.Email, &u.Username, &u.Password)
 	if err == sql.ErrNoRows {
 		return nil, ErrUserNotFound
 	}
@@ -80,8 +91,8 @@ func (s *mysqlStore) GetByEmail(email string) (*user.User, error) {
 
 func (s *mysqlStore) Update(u *user.User) error {
 	_, err := s.db.Exec(
-		"UPDATE users SET email = ?, username = ? WHERE id = ?",
-		u.Email, u.Username, u.Id,
+		"UPDATE users SET email = ?, username = ?, password = ? WHERE id = ?",
+		u.Email, u.Username, u.Password, u.Id,
 	)
 	return err
 }
