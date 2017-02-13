@@ -190,6 +190,7 @@ func TestUpdateUser(t *testing.T) {
 	// database since it accepts a pointer.
 	//
 	// TODO: Come up with way to fix for mock database.
+	//		 Possibly add User.email and User.username fields to fix?
 	u = &user.User{
 		Id:       u.Id,
 		Email:    newEmail,

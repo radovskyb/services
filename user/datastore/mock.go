@@ -89,6 +89,7 @@ func (s *mockRepo) GetByUsername(username string) (*user.User, error) {
 }
 
 // TODO: Find fix for memory changing before an update call issue.
+//		 Possibly add User.email and User.username fields to fix?
 func (s *mockRepo) Update(u *user.User) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
