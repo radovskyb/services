@@ -57,7 +57,7 @@ func TestCreateUser(t *testing.T) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		t.Errorf("expected response code to be 200, got %d", resp.StatusCode)
+		t.Fatalf("expected response code to be 200, got %d", resp.StatusCode)
 	}
 
 	usr, err := mockRepo.GetByEmail(email)

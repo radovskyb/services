@@ -16,7 +16,7 @@ const (
 
 	// Constants used for testing with a real database.
 	dsn              = "root:root@/golang"
-	dropUserTableSQL = `DROP TABLE IF EXISTS users;`
+	dropUserTableSQL = `DROP TABLE IF EXISTS users`
 )
 
 func mysqlRepoSetup(t *testing.T) (UserRepository, func()) {
