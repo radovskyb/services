@@ -171,9 +171,9 @@ func TestUpdateUser(t *testing.T) {
 	defer teardown()
 
 	var (
-		newEmail = "example_user@gmail.com"
-		// newUsername = "example_user"
-		// newPassword = "password456"
+		newEmail    = "example_user@gmail.com"
+		newUsername = "example_user"
+		newPassword = "password456"
 	)
 
 	// Create a new user.
@@ -183,20 +183,7 @@ func TestUpdateUser(t *testing.T) {
 	}
 
 	// Update the email.
-	//
-	// Create a new user with u's values but with a new email.
-	//
-	// Changing the email directly would intefere with the mock
-	// database since it accepts a pointer.
-	//
-	// TODO: Come up with way to fix for mock database.
-	//		 Possibly add User.email and User.username fields to fix?
-	u = &user.User{
-		Id:       u.Id,
-		Email:    newEmail,
-		Username: u.Username,
-		Password: u.Password,
-	}
+	u.Email = newEmail
 	err = us.Update(u)
 	if err != nil {
 		t.Error(err)
@@ -207,19 +194,24 @@ func TestUpdateUser(t *testing.T) {
 		t.Errorf("expected not to find user for email %s", testEmail)
 	}
 
-	// 	// Update the username.
-	// 	u.Username = newUsername
-	// 	err = us.Update(u)
-	// 	if err != nil {
-	// 		t.Error(err)
-	// 	}
+	// Update the username.
+	u.Username = newUsername
+	err = us.Update(u)
+	if err != nil {
+		t.Error(err)
+	}
 
-	// 	// Update the password.
-	// 	u.Password = newPassword
-	// 	err = us.Update(u)
-	// 	if err != nil {
-	// 		t.Error(err)
-	// 	}
+	_, err = us.GetByUsername(testUsername)
+	if err != ErrUserNotFound {
+		t.Errorf("expected not to find user for username %s", testUsername)
+	}
+
+	// Update the password.
+	u.Password = newPassword
+	err = us.Update(u)
+	if err != nil {
+		t.Error(err)
+	}
 }
 
 func TestUpdateUserWithDupEmail(t *testing.T) {

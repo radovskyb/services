@@ -61,7 +61,16 @@ func (s *mockRepo) Get(id int64) (*user.User, error) {
 	if !found {
 		return nil, ErrUserNotFound
 	}
-	return u, nil
+
+	// Return a different user pointer so fields being modified
+	// doesn't directly update the database.
+	new := &user.User{
+		Id:       u.Id,
+		Email:    u.Email,
+		Username: u.Username,
+		Password: u.Password,
+	}
+	return new, nil
 }
 
 func (s *mockRepo) GetByEmail(email string) (*user.User, error) {
@@ -73,7 +82,15 @@ func (s *mockRepo) GetByEmail(email string) (*user.User, error) {
 	if !found {
 		return nil, ErrUserNotFound
 	}
-	return u, nil
+	// Return a different user pointer so fields being modified
+	// doesn't directly update the database.
+	new := &user.User{
+		Id:       u.Id,
+		Email:    u.Email,
+		Username: u.Username,
+		Password: u.Password,
+	}
+	return new, nil
 }
 
 func (s *mockRepo) GetByUsername(username string) (*user.User, error) {
@@ -85,11 +102,17 @@ func (s *mockRepo) GetByUsername(username string) (*user.User, error) {
 	if !found {
 		return nil, ErrUserNotFound
 	}
-	return u, nil
+	// Return a different user pointer so fields being modified
+	// doesn't directly update the database.
+	new := &user.User{
+		Id:       u.Id,
+		Email:    u.Email,
+		Username: u.Username,
+		Password: u.Password,
+	}
+	return new, nil
 }
 
-// TODO: Find fix for memory changing before an update call issue.
-//		 Possibly add User.email and User.username fields to fix?
 func (s *mockRepo) Update(u *user.User) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -117,17 +140,27 @@ func (s *mockRepo) Update(u *user.User) error {
 	}
 
 	// Update the user.
-	s.users[u.Id] = u
+	//
+	// Replace u instead so pointers can't be directly modified
+	// from previously returned users from the Get methods.
+	updated := &user.User{
+		Id:       u.Id,
+		Email:    u.Email,
+		Username: u.Username,
+		Password: u.Password,
+	}
+
+	s.users[u.Id] = updated
 
 	// Delete the old email.
 	delete(s.emails, old.Email)
 	// Add the new email.
-	s.emails[u.Email] = u
+	s.emails[u.Email] = updated
 
 	// Delete the old username.
 	delete(s.usernames, old.Username)
 	// Add the new username.
-	s.usernames[u.Username] = u
+	s.usernames[u.Username] = updated
 
 	return nil
 }
