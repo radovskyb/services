@@ -20,6 +20,32 @@ const (
 	dropUserTableSQL = `DROP TABLE IF EXISTS users`
 )
 
+var setupDB func(t *testing.T) (UserRepository, func())
+
+func TestMain(m *testing.M) {
+	all := flag.Bool("all", false, "run all database implementations")
+	flag.Parse()
+	if !*all {
+		setupDB = mockRepoSetup
+		os.Exit(m.Run())
+	}
+	testCases := []struct {
+		name  string
+		setup func(t *testing.T) (UserRepository, func())
+	}{
+		{"mock", mockRepoSetup},
+		{"mysql", mysqlRepoSetup},
+	}
+	for _, tc := range testCases {
+		fmt.Println(tc.name)
+		setupDB = tc.setup
+		code := m.Run()
+		if code != 0 {
+			os.Exit(code)
+		}
+	}
+}
+
 func mysqlRepoSetup(t *testing.T) (UserRepository, func()) {
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
@@ -54,6 +80,7 @@ func mysqlRepoSetup(t *testing.T) (UserRepository, func()) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return &mysqlRepo{db}, teardown
 }
 
@@ -72,32 +99,6 @@ func mockRepoSetup(t *testing.T) (UserRepository, func()) {
 		us = NewMockRepo()
 	}
 	return us, teardown
-}
-
-var setupDB func(t *testing.T) (UserRepository, func())
-
-func TestMain(m *testing.M) {
-	all := flag.Bool("all", false, "run all database implementations")
-	flag.Parse()
-	if !*all {
-		setupDB = mockRepoSetup
-		os.Exit(m.Run())
-	}
-	testCases := []struct {
-		name  string
-		setup func(t *testing.T) (UserRepository, func())
-	}{
-		{"mock", mockRepoSetup},
-		{"mysql", mysqlRepoSetup},
-	}
-	for _, tc := range testCases {
-		fmt.Println(tc.name)
-		setupDB = tc.setup
-		code := m.Run()
-		if code != 0 {
-			os.Exit(code)
-		}
-	}
 }
 
 func TestGetUser(t *testing.T) {
@@ -290,4 +291,19 @@ func TestUpdateUserWithDupUsername(t *testing.T) {
 	}
 }
 
-// func TestDeleteUser(t *testing.T) {} ...
+func TestDeleteUser(t *testing.T) {
+	us, teardown := setupDB(t)
+	defer teardown()
+
+	// Try to delete a user that doesn't exist.
+	err := us.Delete(2)
+	if err != ErrUserNotFound {
+		t.Error("expected error to be ErrUserNotFound")
+	}
+
+	// Delete the test user from the datastore.
+	err = us.Delete(1)
+	if err != nil {
+		t.Error(err)
+	}
+}
