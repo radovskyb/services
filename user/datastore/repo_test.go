@@ -46,6 +46,24 @@ func TestMain(m *testing.M) {
 	}
 }
 
+// Test *mysqlRepo.checkDupes method.
+func TestCheckDupesMySQL(t *testing.T) {
+	us, teardown := setupDB(t)
+
+	// Only test for *mysqlRepo.
+	mr, ok := us.(*mysqlRepo)
+	if !ok {
+		return
+	}
+
+	teardown()
+
+	err := mr.checkDupes(&user.User{})
+	if err == nil {
+		t.Error("expected error to not be nil")
+	}
+}
+
 func mysqlRepoSetup(t *testing.T) (UserRepository, func()) {
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
@@ -67,7 +85,7 @@ func mysqlRepoSetup(t *testing.T) (UserRepository, func()) {
 		t.Fatal(err)
 	}
 
-	_, err = db.Exec(createUserTableSQL)
+	us, err := NewMySQLRepo(db)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +99,7 @@ func mysqlRepoSetup(t *testing.T) (UserRepository, func()) {
 		t.Fatal(err)
 	}
 
-	return &mysqlRepo{db}, teardown
+	return us, teardown
 }
 
 func mockRepoSetup(t *testing.T) (UserRepository, func()) {
@@ -96,7 +114,11 @@ func mockRepoSetup(t *testing.T) (UserRepository, func()) {
 		t.Fatal(err)
 	}
 	teardown := func() {
-		us = NewMockRepo()
+		mr, ok := us.(*mockRepo)
+		if !ok {
+			t.Fatal("error converting us to *mockRepo")
+		}
+		mr.Close()
 	}
 	return us, teardown
 }
@@ -116,6 +138,44 @@ func TestGetUser(t *testing.T) {
 
 	if u.Username != testUsername {
 		t.Errorf("expected username to be %s, got %s", testUsername, u.Username)
+	}
+
+	// Try to get a user that doesn't exist.
+	_, err = us.Get(2)
+	if err != ErrUserNotFound {
+		t.Error("expected error to be ErrUserNotFound")
+	}
+}
+
+func TestGetByUsername(t *testing.T) {
+	us, teardown := setupDB(t)
+	defer teardown()
+
+	u1, err := us.GetByUsername(testUsername)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	u2, err := us.GetByUsername(u1.Username)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Should be different pointers.
+	if u1 == u2 {
+		t.Error("expected u1 and u2 to be different pointers")
+	}
+}
+
+func TestCreateUserAfterTeardown(t *testing.T) {
+	us, teardown := setupDB(t)
+
+	teardown()
+
+	// Try to create a new user.
+	err := us.Create(&user.User{})
+	if err == nil {
+		t.Error("expected err to not be nil")
 	}
 }
 
@@ -213,6 +273,30 @@ func TestUpdateUser(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+
+	// Try to update a user that doesn't exist.
+	u.Id = 2
+	err = us.Update(u)
+	if err != ErrUserNotFound {
+		t.Error("expected error to be ErrUserNotFound")
+	}
+}
+
+func TestUpdateUserAfterTeardown(t *testing.T) {
+	us, teardown := setupDB(t)
+
+	u, err := us.GetByEmail(testEmail)
+	if err != nil {
+		t.Error(err)
+	}
+
+	teardown()
+
+	// Try to update the user.
+	err = us.Update(u)
+	if err == nil {
+		t.Error("expected err to not be nil")
+	}
 }
 
 func TestUpdateUserWithDupEmail(t *testing.T) {
@@ -288,6 +372,18 @@ func TestUpdateUserWithDupUsername(t *testing.T) {
 	err = us.Update(u1)
 	if err != ErrDuplicateUsername {
 		t.Errorf("expected err to be ErrDuplicateUsername, got %v", err)
+	}
+}
+
+func TestDeleteUserAfterTeardown(t *testing.T) {
+	us, teardown := setupDB(t)
+
+	teardown()
+
+	// Try to delete a user.
+	err := us.Delete(1)
+	if err == nil {
+		t.Error("expected err to not be nil")
 	}
 }
 

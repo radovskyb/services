@@ -72,7 +72,7 @@ func (s *mysqlRepo) GetByUsername(username string) (*user.User, error) {
 }
 
 func (s *mysqlRepo) Update(u *user.User) error {
-	_, err := s.db.Exec(
+	res, err := s.db.Exec(
 		"UPDATE users SET email = ?, username = ?, password = ? WHERE id = ?",
 		u.Email, u.Username, u.Password, u.Id,
 	)
@@ -87,42 +87,45 @@ func (s *mysqlRepo) Update(u *user.User) error {
 			return fmt.Errorf("error converting to mysql error: %s", err.Error())
 		}
 	}
-	return nil
-}
-
-func (s *mysqlRepo) Delete(id int64) error {
-	res, err := s.db.Exec("DELETE FROM users WHERE id = ?", id)
-	affected, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
+	// MySQL driver won't return an error for res.RowsAffected.
+	affected, _ := res.RowsAffected()
 	if affected != 1 {
 		return ErrUserNotFound
 	}
 	return nil
 }
 
+func (s *mysqlRepo) Delete(id int64) error {
+	res, err := s.db.Exec("DELETE FROM users WHERE id = ?", id)
+	if err != nil {
+		return err
+	}
+	// MySQL driver won't return an error for res.RowsAffected.
+	affected, _ := res.RowsAffected()
+	if affected != 1 {
+		return ErrUserNotFound
+	}
+	return err
+}
+
 func (s *mysqlRepo) checkDupes(u *user.User) error {
 	var id int64
 	// Check if the email already exists.
-	err := s.db.QueryRow(
+	err1 := s.db.QueryRow(
 		"SELECT id FROM users WHERE email = ?", u.Email,
 	).Scan(&id)
-	if err != nil && err != sql.ErrNoRows {
-		return err
-	}
-	if id != u.Id {
+	if id != 0 && id != u.Id {
 		return ErrDuplicateEmail
 	}
 	// Check if the username already exists.
-	err = s.db.QueryRow(
+	err2 := s.db.QueryRow(
 		"SELECT id FROM users WHERE username = ?", u.Username,
 	).Scan(&id)
-	if err != nil && err != sql.ErrNoRows {
-		return err
-	}
-	if id != u.Id {
+	if id != 0 && id != u.Id {
 		return ErrDuplicateUsername
 	}
-	return nil
+	if err1 == nil {
+		err1 = err2
+	}
+	return err1
 }

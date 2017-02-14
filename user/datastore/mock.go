@@ -1,6 +1,7 @@
 package datastore
 
 import (
+	"errors"
 	"sync"
 
 	"github.com/radovskyb/services/user"
@@ -25,9 +26,19 @@ func NewMockRepo() UserRepository {
 	}
 }
 
+func (s *mockRepo) Close() {
+	s.users = nil
+	s.emails = nil
+	s.usernames = nil
+}
+
 func (s *mockRepo) Create(u *user.User) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	if s.users == nil {
+		return errors.New("database is closed")
+	}
 
 	s.idCnt++
 
