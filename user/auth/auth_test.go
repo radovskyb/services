@@ -73,3 +73,110 @@ func TestAuthenticateUser(t *testing.T) {
 		t.Error("expected err to not be nil")
 	}
 }
+
+func TestValidateUser(t *testing.T) {
+	auth := NewAuth(datastore.NewMockRepo())
+
+	// Test empty fields.
+	testCases := []struct {
+		u *user.User
+	}{
+		{&user.User{}},
+		{&user.User{Email: testEmail}},
+		{&user.User{Email: testEmail, Username: testUsername}},
+	}
+	for _, tc := range testCases {
+		err := auth.ValidateUser(tc.u)
+		if err != ErrEmptyRequiredField {
+			t.Errorf("expected err to be ErrEmptyRequiredField, got %v", err)
+		}
+	}
+
+	// Test with all fields not blank.
+	u := &user.User{
+		Email:    testEmail,
+		Username: testUsername,
+		Password: testPassword,
+	}
+	err := auth.ValidateUser(u)
+	if err == ErrEmptyRequiredField {
+		t.Error("expected err to not be ErrEmptyRequiredField")
+	}
+
+	// Test invalid email.
+	testCases = []struct {
+		u *user.User
+	}{
+		{&user.User{
+			Email: "a@a", Username: testUsername, Password: testPassword,
+		}},
+		{&user.User{
+			Email: "aaa", Username: testUsername, Password: testPassword,
+		}},
+		{&user.User{
+			Email: "a@a.c", Username: testUsername, Password: testPassword,
+		}},
+		{&user.User{
+			Email: "%mail@$email.com", Username: testUsername, Password: testPassword,
+		}},
+	}
+	for _, tc := range testCases {
+		err = auth.ValidateUser(tc.u)
+		if err != ErrInvalidEmail {
+			t.Errorf("expected err to be ErrInvalidEmail, got %v", err)
+		}
+	}
+
+	testCases = []struct {
+		u *user.User
+	}{
+		{&user.User{
+			Email: testEmail, Username: "a-b-c", Password: testPassword,
+		}},
+		{&user.User{
+			Email: testEmail, Username: "%abc%", Password: testPassword,
+		}},
+		{&user.User{
+			Email: testEmail, Username: "@123abc", Password: testPassword,
+		}},
+	}
+	for _, tc := range testCases {
+		err = auth.ValidateUser(tc.u)
+		if err != ErrInvalidUsername {
+			t.Errorf("expected err to be ErrInvalidUsername, got %v", err)
+		}
+	}
+
+	// Test username length.
+	testCases = []struct {
+		u *user.User
+	}{
+		{&user.User{
+			Email:    testEmail,
+			Username: "a1",
+			Password: testPassword,
+		}},
+		{&user.User{
+			Email:    testEmail,
+			Username: "abcdefghijklmnopqrstuvwxyz",
+			Password: testPassword,
+		}},
+	}
+	for _, tc := range testCases {
+		err = auth.ValidateUser(tc.u)
+		if err != ErrInvalidUsernameLength {
+			t.Errorf("expected err to be ErrInvalidUsernameLength, got %v", err)
+		}
+	}
+
+	// Test password length.
+	u = &user.User{
+		Email:    testEmail,
+		Username: testUsername,
+		Password: "12345",
+	}
+	err = auth.ValidateUser(u)
+	if err != ErrPasswordTooShort {
+		t.Errorf("expected err to be ErrInvalidPasswordLength, got %v", err)
+	}
+}
