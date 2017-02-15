@@ -15,7 +15,7 @@ var mockRepo = datastore.NewMockRepo()
 func newRouter() *mux.Router {
 	r := mux.NewRouter()
 	userHandler := NewHandler(mockRepo)
-	r.HandleFunc("/create", userHandler.CreateUser)
+	r.HandleFunc("/register", userHandler.RegisterUser)
 	return r
 }
 
@@ -30,7 +30,7 @@ func newTestServer() (*httptest.Server, func()) {
 	return s, teardown
 }
 
-func TestCreateUser(t *testing.T) {
+func TestRegisterUser(t *testing.T) {
 	server, teardown := newTestServer()
 	defer teardown()
 
@@ -40,7 +40,7 @@ func TestCreateUser(t *testing.T) {
 		password = "password123"
 	)
 
-	u, err := url.Parse(server.URL + "/create")
+	u, err := url.Parse(server.URL + "/register")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -4,32 +4,39 @@ import (
 	"net/http"
 
 	"github.com/radovskyb/services/user"
+	"github.com/radovskyb/services/user/auth"
 	"github.com/radovskyb/services/user/datastore"
 )
 
-type Handler struct{ repo datastore.UserRepository }
-
-func NewHandler(repo datastore.UserRepository) *Handler {
-	return &Handler{repo: repo}
+type Handler struct {
+	r datastore.UserRepository
+	a auth.Auth
 }
 
-func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
+func NewHandler(r datastore.UserRepository) *Handler {
+	return &Handler{r: r, a: auth.NewAuth(r)}
+}
+
+func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	var (
 		email    = r.FormValue("email")
 		username = r.FormValue("username")
 		password = r.FormValue("password")
 	)
 
-	// TODO: Put user validation here.
-
-	// TODO: Hash password here.
-	hashedPassword := password // Use regular pass for now.
-
-	u := &user.User{Email: email, Username: username, Password: hashedPassword}
+	u := &user.User{
+		Email:    email,
+		Username: username,
+		Password: password,
+	}
 
 	// Create the user in the user repository.
-	err := h.repo.Create(u)
-	if err != nil {
+	if err := h.a.CreateUser(u); err != nil {
+		if auth.IsValidationErr(err) {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 }
