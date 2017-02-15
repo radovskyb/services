@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -10,28 +11,26 @@ import (
 	"github.com/radovskyb/services/user/datastore"
 )
 
-var mockRepo = datastore.NewMockRepo()
+// setup returns a new httptest server, the user's datastore
+// and a teardown function.
+func setup() (*httptest.Server, datastore.UserRepository, func()) {
+	mockRepo := datastore.NewMockRepo()
 
-func newRouter() *mux.Router {
 	r := mux.NewRouter()
 	userHandler := NewHandler(mockRepo)
 	r.HandleFunc("/register", userHandler.RegisterUser)
-	return r
-}
 
-func newTestServer() (*httptest.Server, func()) {
-	s := httptest.NewServer(newRouter())
+	s := httptest.NewServer(r)
 	teardown := func() {
 		// Close the server.
 		s.Close()
-		// Reset the mockRepo.
-		mockRepo = datastore.NewMockRepo()
 	}
-	return s, teardown
+
+	return s, mockRepo, teardown
 }
 
 func TestRegisterUser(t *testing.T) {
-	server, teardown := newTestServer()
+	server, mockRepo, teardown := setup()
 	defer teardown()
 
 	var (
@@ -72,5 +71,73 @@ func TestRegisterUser(t *testing.T) {
 	}
 	if usr.Id != 1 {
 		t.Errorf("expected id to be 1, got %d", usr.Id)
+	}
+}
+
+func TestRegisterUserWithInvalidData(t *testing.T) {
+	server, _, teardown := setup()
+	defer teardown()
+
+	var (
+		email    = "invalid@email"
+		username = "radovskyb"
+		password = "password123"
+	)
+
+	u, err := url.Parse(server.URL + "/register")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	q := u.Query()
+	q.Set("email", email)
+	q.Set("username", username)
+	q.Set("password", password)
+
+	resp, err := http.PostForm(u.String(), q)
+	if err != nil {
+		t.Error(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected response code to be 400, got %d", resp.StatusCode)
+	}
+}
+
+func TestRegisterUserAfterTeardown(t *testing.T) {
+	server, mockRepo, teardown := setup()
+	defer teardown()
+
+	var (
+		email    = "radovskyb@gmail.com"
+		username = "radovskyb"
+		password = "password123"
+	)
+
+	u, err := url.Parse(server.URL + "/register")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	q := u.Query()
+	q.Set("email", email)
+	q.Set("username", username)
+	q.Set("password", password)
+
+	closer, ok := mockRepo.(io.Closer)
+	if !ok {
+		t.Fatal("repo doesn't implement an io.Closer")
+	}
+	closer.Close()
+
+	resp, err := http.PostForm(u.String(), q)
+	if err != nil {
+		t.Error(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusInternalServerError {
+		t.Fatalf("expected response code to be 500, got %d", resp.StatusCode)
 	}
 }
