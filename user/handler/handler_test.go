@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/gorilla/mux"
 	"github.com/radovskyb/services/user/datastore"
 )
 
@@ -16,11 +15,11 @@ import (
 func setup() (*httptest.Server, datastore.UserRepository, func()) {
 	mockRepo := datastore.NewMockRepo()
 
-	r := mux.NewRouter()
+	mux := http.NewServeMux()
 	userHandler := NewHandler(mockRepo)
-	r.HandleFunc("/register", userHandler.RegisterUser)
+	mux.HandleFunc("/register", userHandler.RegisterUser)
 
-	s := httptest.NewServer(r)
+	s := httptest.NewServer(mux)
 	teardown := func() {
 		// Close the server.
 		s.Close()
