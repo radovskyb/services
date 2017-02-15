@@ -26,10 +26,14 @@ func NewMockRepo() UserRepository {
 	}
 }
 
-func (s *mockRepo) Close() {
+// Close returns a nil error so it can implement the
+// io.Closer interface, which can be useful for testing
+// when wanting to `cut` the connection to the mockRepo.
+func (s *mockRepo) Close() error {
 	s.users = nil
 	s.emails = nil
 	s.usernames = nil
+	return nil
 }
 
 func (s *mockRepo) Create(u *user.User) error {
