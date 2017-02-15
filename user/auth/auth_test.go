@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/radovskyb/services/user"
@@ -12,6 +13,17 @@ const (
 	testUsername = "radovskyb"
 	testPassword = "password123" // Only use bcrypt in production database.
 )
+
+func TestIsValidationErr(t *testing.T) {
+	isValErr := IsValidationErr(ErrInvalidEmail)
+	if !isValErr {
+		t.Error("expected err to be a validation error")
+	}
+	isValErr = IsValidationErr(errors.New("error: random error"))
+	if isValErr {
+		t.Error("expected err to not be a validation error")
+	}
+}
 
 func TestValidateUser(t *testing.T) {
 	auth := NewAuth(datastore.NewMockRepo())

@@ -20,6 +20,18 @@ var (
 	ErrInvalidUsername       = errors.New("error: username is invalid (can only contain numbers and letters)")
 )
 
+func IsValidationErr(err error) bool {
+	switch err {
+	case ErrEmptyRequiredField,
+		ErrInvalidUsernameLength,
+		ErrInvalidEmail,
+		ErrPasswordTooShort,
+		ErrInvalidUsername:
+		return true
+	}
+	return false
+}
+
 type Auth interface {
 	// CreateUser hashes a user's password and then stores
 	// the user in a user repository.
