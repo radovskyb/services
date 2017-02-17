@@ -1,9 +1,15 @@
 package session
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gorilla/sessions"
+)
+
+var (
+	ErrUserNotSet      = errors.New("user is not set for user_session")
+	ErrUserNotLoggedIn = errors.New("user is not logged in")
 )
 
 type Session interface {
@@ -21,51 +27,56 @@ type Session interface {
 	CurrentUser(r *http.Request) (string, error)
 }
 
+// session is the default implementation for Session.
 type session struct {
 	cookiestore *sessions.CookieStore
 }
 
-func NewSession(keyPairs ...[]byte) Session {
-	return &session{sessions.NewCookieStore(keyPairs...)}
+func NewSession(store *sessions.CookieStore) Session {
+	return &session{store}
 }
 
 func (s *session) LogInUser(w http.ResponseWriter, r *http.Request,
 	username string) error {
-	session, err := s.cookiestore.Get(r, "user_session")
+	sess, err := s.cookiestore.Get(r, "user_session")
 	if err != nil {
 		return err
 	}
-	session.Values["loggedin"] = true
-	session.Values["username"] = username
-	return session.Save(r, w)
+	sess.Values["loggedin"] = true
+	sess.Values["username"] = username
+	return sess.Save(r, w)
 }
 
 func (s *session) LogOutUser(w http.ResponseWriter, r *http.Request) error {
-	session, err := s.cookiestore.Get(r, "user_session")
+	sess, err := s.cookiestore.Get(r, "user_session")
 	if err != nil {
 		return err
 	}
-	if session.Values["loggedin"] != true {
-		return nil
+	if sess.Values["loggedin"] != true {
+		return ErrUserNotLoggedIn
 	}
-	for key := range session.Values {
-		delete(session.Values, key)
+	for key := range sess.Values {
+		delete(sess.Values, key)
 	}
-	return session.Save(r, w)
+	return sess.Save(r, w)
 }
 
 func (s *session) UserLoggedIn(r *http.Request) bool {
-	session, err := s.cookiestore.Get(r, "user_session")
-	if err == nil && (session.Values["loggedin"] == true) {
+	sess, err := s.cookiestore.Get(r, "user_session")
+	if err == nil && (sess.Values["loggedin"] == true) {
 		return true
 	}
 	return false
 }
 
 func (s *session) CurrentUser(r *http.Request) (string, error) {
-	session, err := s.cookiestore.Get(r, "user_session")
+	sess, err := s.cookiestore.Get(r, "user_session")
 	if err != nil {
 		return "", err
 	}
-	return session.Values["username"].(string), nil
+	username, ok := sess.Values["username"]
+	if !ok {
+		return "", ErrUserNotSet
+	}
+	return username.(string), nil
 }
