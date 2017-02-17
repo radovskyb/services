@@ -46,24 +46,6 @@ func TestMain(m *testing.M) {
 	}
 }
 
-// Test *mysqlRepo.checkDupes method.
-func TestCheckDupesMySQL(t *testing.T) {
-	us, teardown := setupDB(t)
-
-	// Only test for *mysqlRepo.
-	mr, ok := us.(*mysqlRepo)
-	if !ok {
-		return
-	}
-
-	teardown()
-
-	err := mr.checkDupes(&user.User{})
-	if err == nil {
-		t.Error("expected error to not be nil")
-	}
-}
-
 func mysqlRepoSetup(t *testing.T) (UserRepository, func()) {
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
@@ -401,5 +383,23 @@ func TestDeleteUser(t *testing.T) {
 	err = us.Delete(1)
 	if err != nil {
 		t.Error(err)
+	}
+}
+
+// Test *mysqlRepo.checkDupes method.
+func TestCheckDupesMySQL(t *testing.T) {
+	us, teardown := setupDB(t)
+
+	// Only test for *mysqlRepo.
+	mr, ok := us.(*mysqlRepo)
+	if !ok {
+		return
+	}
+
+	teardown()
+
+	err := mr.checkDupes(&user.User{})
+	if err == nil {
+		t.Error("expected error to not be nil")
 	}
 }
