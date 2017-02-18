@@ -386,6 +386,33 @@ func TestDeleteUser(t *testing.T) {
 	}
 }
 
+func TestAuthenticateUser(t *testing.T) {
+	us, teardown := setupDB(t)
+	defer teardown()
+
+	// Try to authenticate a user with correct details.
+	u, err := us.Authenticate(testEmail, testPassword)
+	if err != nil {
+		t.Error(err)
+	}
+	if u.Username != testUsername {
+		t.Errorf("expected u.Username to be %s, got %s",
+			testUsername, u.Username)
+	}
+
+	// Try to authenticate a user with an email that doesn't exist.
+	u, err = us.Authenticate("notfound@example.com", testPassword)
+	if err != ErrUserNotFound {
+		t.Errorf("expected err to be ErrUserNotFound, got %v", err)
+	}
+
+	// Try to authenticate a user with an incorrect password.
+	u, err = us.Authenticate(testEmail, "wrongpassword")
+	if err != ErrWrongPassword {
+		t.Errorf("expected err to be ErrWrongPassword, got %v", err)
+	}
+}
+
 // Test *mysqlRepo.checkDupes method.
 func TestCheckDupesMySQL(t *testing.T) {
 	us, teardown := setupDB(t)
