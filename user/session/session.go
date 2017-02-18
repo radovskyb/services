@@ -17,7 +17,7 @@ type Session interface {
 	// in the user's session.
 	LogInUser(w http.ResponseWriter, r *http.Request, username string) error
 
-	// LogOutUser removes a user from the user's session to log them out.
+	// LogOutUser removes the current logged in user from the user's session.
 	LogOutUser(w http.ResponseWriter, r *http.Request) error
 
 	// UserLoggedIn checks if any user is currently logged in.

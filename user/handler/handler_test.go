@@ -11,6 +11,7 @@ import (
 	"github.com/gorilla/sessions"
 	"github.com/radovskyb/services/user/auth"
 	"github.com/radovskyb/services/user/datastore"
+	"github.com/radovskyb/services/user/session"
 )
 
 // setup returns a new httptest server, the user's datastore
@@ -20,10 +21,6 @@ func setup() (*httptest.Server, *Handler, func()) {
 	cs := sessions.NewCookieStore([]byte("secret-session"))
 
 	userHandler := NewHandler(mockRepo, cs)
-
-	// mux := http.NewServeMux()
-	// mux.HandleFunc("/register", userHandler.RegisterUser)
-	// mux.HandleFunc("/login", userHandler.UserLogin)
 
 	s := httptest.NewServer(nil)
 	teardown := func() {
@@ -333,5 +330,71 @@ func TestUserLoginAfterRepoClose(t *testing.T) {
 
 	if rr.Code != http.StatusInternalServerError {
 		t.Fatalf("expected code to be 500, got %d", rr.Code)
+	}
+}
+
+func TestUserLogout(t *testing.T) {
+	server, uh, teardown := setup()
+	defer teardown()
+
+	var (
+		email    = "radovskyb@gmail.com"
+		username = "radovskyb"
+		password = "password123"
+	)
+
+	req, err := http.NewRequest("POST", server.URL, nil)
+	if err != nil {
+		t.Error(err)
+	}
+	pf := url.Values{}
+	pf.Set("email", email)
+	pf.Set("username", username)
+	pf.Set("password", password)
+	req.Form = pf
+
+	rr := httptest.NewRecorder()
+
+	// Try to log out a user when no user is currently logged in.
+	uh.UserLogout(rr, req)
+
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("expected code to be 404, got %d", rr.Code)
+	}
+	body := rr.Body.String()
+	if strings.TrimSpace(body) != session.ErrUserNotLoggedIn.Error() {
+		t.Errorf("expected body to be a user not logged in error, got %s", body)
+	}
+
+	// Reset the response recorder.
+	rr = httptest.NewRecorder()
+
+	// Register a user.
+	uh.RegisterUser(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected code to be 200, got %d", rr.Code)
+	}
+
+	// Log the user in.
+	uh.UserLogin(rr, req)
+
+	// Check that now there is a user set to logged in for the session.
+	loggedIn := uh.s.UserLoggedIn(req)
+	if !loggedIn {
+		t.Error("expected user to be logged in")
+	}
+
+	// Log the user out.
+	uh.UserLogout(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected code to be 200, got %d", rr.Code)
+	}
+
+	// Check that there's no user set to logged in for the session.
+	loggedIn = uh.s.UserLoggedIn(req)
+	if loggedIn {
+		t.Error("expected no user to be logged in")
 	}
 }

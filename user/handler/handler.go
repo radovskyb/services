@@ -84,3 +84,16 @@ func (h *Handler) UserLogin(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
+
+func (h *Handler) UserLogout(w http.ResponseWriter, r *http.Request) {
+	// Log out the currently logged in user.
+	err := h.s.LogOutUser(w, r)
+	if err != nil {
+		if err == session.ErrUserNotLoggedIn {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
