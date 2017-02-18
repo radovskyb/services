@@ -60,18 +60,21 @@ func (h *Handler) UserLogin(w http.ResponseWriter, r *http.Request) {
 	// simply return an error, but it saves a datastore call if
 	// at least a blank email or password check is in place.
 	if email == "" || password == "" {
-		http.Error(w, "email or password is empty", http.StatusBadRequest)
+		http.Error(w, auth.ErrEmptyRequiredField.Error(), http.StatusBadRequest)
 		return
 	}
 
 	// Authenticate the user.
 	u, err := h.a.AuthenticateUser(email, password)
 	if err != nil {
-		if err != auth.ErrWrongPassword {
+		switch err {
+		case datastore.ErrUserNotFound:
+			http.Error(w, err.Error(), http.StatusNotFound)
+		case auth.ErrWrongPassword:
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+		default:
 			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
 		}
-		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 

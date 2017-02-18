@@ -7,6 +7,8 @@ import (
 	"github.com/radovskyb/services/user"
 )
 
+var ErrRepoClosed = errors.New("database is closed")
+
 type mockRepo struct {
 	mu    *sync.Mutex          // Protects the following.
 	idCnt int64                // Auto incrementing id counter.
@@ -41,7 +43,7 @@ func (s *mockRepo) Create(u *user.User) error {
 	defer s.mu.Unlock()
 
 	if s.users == nil {
-		return errors.New("database is closed")
+		return ErrRepoClosed
 	}
 
 	s.idCnt++
@@ -71,6 +73,10 @@ func (s *mockRepo) Get(id int64) (*user.User, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	if s.users == nil {
+		return nil, ErrRepoClosed
+	}
+
 	// Make sure the user exists.
 	u, found := s.users[id]
 	if !found {
@@ -92,6 +98,10 @@ func (s *mockRepo) GetByEmail(email string) (*user.User, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	if s.users == nil {
+		return nil, ErrRepoClosed
+	}
+
 	// Make sure the user exists.
 	u, found := s.emails[email]
 	if !found {
@@ -112,6 +122,10 @@ func (s *mockRepo) GetByUsername(username string) (*user.User, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	if s.users == nil {
+		return nil, ErrRepoClosed
+	}
+
 	// Make sure the user exists.
 	u, found := s.usernames[username]
 	if !found {
@@ -131,6 +145,10 @@ func (s *mockRepo) GetByUsername(username string) (*user.User, error) {
 func (s *mockRepo) Update(u *user.User) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	if s.users == nil {
+		return ErrRepoClosed
+	}
 
 	// Check if the user exists.
 	old, found := s.users[u.Id]
@@ -183,6 +201,10 @@ func (s *mockRepo) Update(u *user.User) error {
 func (s *mockRepo) Delete(id int64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	if s.users == nil {
+		return ErrRepoClosed
+	}
 
 	u, found := s.users[id]
 	if !found {

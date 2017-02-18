@@ -149,13 +149,42 @@ func TestGetByUsername(t *testing.T) {
 	}
 }
 
-func TestCreateUserAfterTeardown(t *testing.T) {
+func TestErrorAfterTeardown(t *testing.T) {
 	us, teardown := setupDB(t)
 
 	teardown()
 
 	// Try to create a new user.
 	err := us.Create(&user.User{})
+	if err == nil {
+		t.Error("expected err to not be nil")
+	}
+
+	// Try to update a user.
+	err = us.Update(&user.User{})
+	if err == nil {
+		t.Error("expected err to not be nil")
+	}
+
+	// Try to delete a user.
+	err = us.Delete(1)
+	if err == nil {
+		t.Error("expected err to not be nil")
+	}
+
+	// Try to get a user.
+	_, err = us.Get(1)
+	if err == nil {
+		t.Error("expected err to not be nil")
+	}
+
+	// Try to get a user.
+	_, err = us.GetByEmail(testEmail)
+	if err == nil {
+		t.Error("expected err to not be nil")
+	}
+
+	_, err = us.GetByUsername(testUsername)
 	if err == nil {
 		t.Error("expected err to not be nil")
 	}
