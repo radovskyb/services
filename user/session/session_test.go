@@ -3,22 +3,31 @@ package session
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/gorilla/sessions"
 )
 
+var server *httptest.Server
+
 const testUsername = "radovskyb"
 
-func setup() (*httptest.Server, Session) {
-	return httptest.NewServer(nil), NewSession(
+func setup() Session {
+	return NewSession(
 		sessions.NewCookieStore([]byte("secret-session")),
 	)
 }
 
+func TestMain(m *testing.M) {
+	server = httptest.NewServer(nil)
+	code := m.Run()
+	server.Close()
+	os.Exit(code)
+}
+
 func TestCurrentUserWithoutLogin(t *testing.T) {
-	server, sess := setup()
-	defer server.Close()
+	sess := setup()
 
 	req, err := http.NewRequest("GET", server.URL, nil)
 	if err != nil {
@@ -36,8 +45,7 @@ func TestCurrentUserWithoutLogin(t *testing.T) {
 }
 
 func TestLogInUser(t *testing.T) {
-	server, sess := setup()
-	defer server.Close()
+	sess := setup()
 
 	req, err := http.NewRequest("GET", server.URL, nil)
 	if err != nil {
@@ -65,8 +73,7 @@ func TestLogInUser(t *testing.T) {
 }
 
 func TestLogOutUser(t *testing.T) {
-	server, sess := setup()
-	defer server.Close()
+	sess := setup()
 
 	req, err := http.NewRequest("GET", server.URL, nil)
 	if err != nil {
@@ -118,8 +125,7 @@ func TestLogOutUser(t *testing.T) {
 }
 
 func TestUserLoggedIn(t *testing.T) {
-	server, sess := setup()
-	defer server.Close()
+	sess := setup()
 
 	req, err := http.NewRequest("GET", server.URL, nil)
 	if err != nil {

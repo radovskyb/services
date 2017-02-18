@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 
@@ -14,26 +15,25 @@ import (
 	"github.com/radovskyb/services/user/session"
 )
 
-// setup returns a new httptest server, the user's datastore
-// and a teardown function.
-func setup() (*httptest.Server, *Handler, func()) {
+var server *httptest.Server
+
+// setup sets up and returns a new user handler.
+func setup() *Handler {
 	mockRepo := datastore.NewMockRepo()
 	cs := sessions.NewCookieStore([]byte("secret-session"))
-
 	userHandler := NewHandler(mockRepo, cs)
+	return userHandler
+}
 
-	s := httptest.NewServer(nil)
-	teardown := func() {
-		// Close the server.
-		s.Close()
-	}
-
-	return s, userHandler, teardown
+func TestMain(m *testing.M) {
+	server = httptest.NewServer(nil)
+	code := m.Run()
+	server.Close()
+	os.Exit(code)
 }
 
 func TestRegisterUser(t *testing.T) {
-	server, uh, teardown := setup()
-	defer teardown()
+	uh := setup()
 
 	var (
 		email    = "radovskyb@gmail.com"
@@ -75,8 +75,7 @@ func TestRegisterUser(t *testing.T) {
 }
 
 func TestRegisterUserWithInvalidData(t *testing.T) {
-	server, uh, teardown := setup()
-	defer teardown()
+	uh := setup()
 
 	var (
 		email    = "invalid@email"
@@ -104,8 +103,7 @@ func TestRegisterUserWithInvalidData(t *testing.T) {
 }
 
 func TestRegisterUserAfterRepoClose(t *testing.T) {
-	server, uh, teardown := setup()
-	defer teardown()
+	uh := setup()
 
 	var (
 		email    = "radovskyb@gmail.com"
@@ -139,8 +137,7 @@ func TestRegisterUserAfterRepoClose(t *testing.T) {
 }
 
 func TestUserLogin(t *testing.T) {
-	server, uh, teardown := setup()
-	defer teardown()
+	uh := setup()
 
 	var (
 		email    = "radovskyb@gmail.com"
@@ -196,8 +193,7 @@ func TestUserLogin(t *testing.T) {
 }
 
 func TestUserLoginWithInvalidData(t *testing.T) {
-	server, uh, teardown := setup()
-	defer teardown()
+	uh := setup()
 
 	var (
 		email    = "radovskyb@gmail.com"
@@ -283,8 +279,7 @@ func TestUserLoginWithInvalidData(t *testing.T) {
 }
 
 func TestUserLoginAfterRepoClose(t *testing.T) {
-	server, uh, teardown := setup()
-	defer teardown()
+	uh := setup()
 
 	var (
 		email    = "radovskyb@gmail.com"
@@ -334,8 +329,7 @@ func TestUserLoginAfterRepoClose(t *testing.T) {
 }
 
 func TestUserLogout(t *testing.T) {
-	server, uh, teardown := setup()
-	defer teardown()
+	uh := setup()
 
 	var (
 		email    = "radovskyb@gmail.com"
