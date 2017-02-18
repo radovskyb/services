@@ -182,20 +182,45 @@ func TestAuthenticateUser(t *testing.T) {
 	}
 
 	// Try to authenticate a user with correct credentials.
-	err = auth.AuthenticateUser(testUsername, testPassword)
+	u, err = auth.AuthenticateUser(testEmail, testPassword)
 	if err != nil {
 		t.Error(err)
 	}
+	if u.Username != testUsername {
+		t.Errorf("expected u.Username to be %s, got %s",
+			testUsername, u.Username)
+	}
 
-	// Try to authenticate a user that doesn't exist.
-	err = auth.AuthenticateUser("invalidUsername", testPassword)
+	// Try to authenticate a user with an email that doesn't exist.
+	u, err = auth.AuthenticateUser("notfound@example.com", testPassword)
 	if err != datastore.ErrUserNotFound {
 		t.Error("expected err to be ErrUserNotFound, got %v", err)
 	}
 
-	// Try to authenticate a user with an invalid password.
-	err = auth.AuthenticateUser(testUsername, "invalidPassword")
+	// Try to authenticate a user with an incorrect password.
+	u, err = auth.AuthenticateUser(testEmail, "wrongpassword")
+	if err != ErrWrongPassword {
+		t.Errorf("expected err to be ErrWrongPassword, got %v", err)
+	}
+
+	// Corrupt the user's password in the database.
+	u = &user.User{
+		Id:       1,
+		Email:    testEmail,
+		Username: testUsername,
+		Password: "corrupted_password",
+	}
+	err = repo.Update(u)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Try to authenticate a user with a user's corrupted stored password.
+	_, err = auth.AuthenticateUser(testEmail, "wrongpassword")
 	if err == nil {
-		t.Error("expected err to not be nil")
+		t.Errorf("expected err not to be nil")
+	}
+	if err == ErrWrongPassword {
+		t.Errorf("expected err not to be ErrWrongPassword")
 	}
 }

@@ -194,21 +194,3 @@ func (s *mockRepo) Delete(id int64) error {
 
 	return nil
 }
-
-func (s *mockRepo) Authenticate(email, pass string) (*user.User, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	// Make sure the user exists.
-	u, found := s.emails[email]
-	if !found {
-		return nil, ErrUserNotFound
-	}
-
-	// Now match the user's password.
-	if u.Password != pass {
-		return nil, ErrWrongPassword
-	}
-
-	return u, nil
-}

@@ -18,6 +18,7 @@ var (
 	ErrInvalidEmail          = errors.New("error: email is invalid")
 	ErrPasswordTooShort      = errors.New("error: password is too short (must be at least 6 characters)")
 	ErrInvalidUsername       = errors.New("error: username is invalid (can only contain numbers and letters)")
+	ErrWrongPassword         = errors.New("error: incorrect password")
 )
 
 func IsValidationErr(err error) bool {
@@ -41,11 +42,14 @@ type Auth interface {
 	// valid to be used with the user's repository.
 	ValidateUser(u *user.User) error
 
-	// AuthenticateUser authenticates a user from a user.
+	// AuthenticateUser authenticates a user from a user's
+	// email and password.
 	//
 	// Password is hashed and then compared to the user's
 	// hashed password.
-	AuthenticateUser(username, password string) error
+	//
+	// If there's no errors, a *user.User will be returned.
+	AuthenticateUser(email, password string) (*user.User, error)
 }
 
 // auth is the default implementation for Auth.
@@ -103,12 +107,19 @@ func (a *auth) CreateUser(u *user.User) error {
 	return a.r.Create(u)
 }
 
-func (a *auth) AuthenticateUser(username, password string) error {
-	u, err := a.r.GetByUsername(username)
+func (a *auth) AuthenticateUser(email, password string) (*user.User, error) {
+	u, err := a.r.GetByEmail(email)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return bcrypt.CompareHashAndPassword(
-		[]byte(u.Password), []byte(password),
-	)
+	err = bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password))
+	if err == nil {
+		return u, nil
+	}
+	// If the compared passwords don't match, return an ErrWrongPassword.
+	if err == bcrypt.ErrMismatchedHashAndPassword {
+		return nil, ErrWrongPassword
+	}
+	// If the error was is something else, return it.
+	return nil, err
 }

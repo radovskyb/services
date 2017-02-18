@@ -129,20 +129,3 @@ func (s *mysqlRepo) checkDupes(u *user.User) error {
 	}
 	return err1
 }
-
-func (s *mysqlRepo) Authenticate(email, pass string) (*user.User, error) {
-	// Make sure the user exists.
-	u := new(user.User)
-	row := s.db.QueryRow("SELECT * FROM users WHERE email = ?", email)
-	err := row.Scan(&u.Id, &u.Email, &u.Username, &u.Password)
-	if err == sql.ErrNoRows {
-		return nil, ErrUserNotFound
-	}
-
-	// Now match the user's password.
-	if u.Password != pass {
-		return nil, ErrWrongPassword
-	}
-
-	return u, nil
-}
