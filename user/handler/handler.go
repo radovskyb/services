@@ -3,18 +3,25 @@ package handler
 import (
 	"net/http"
 
+	"github.com/gorilla/sessions"
 	"github.com/radovskyb/services/user"
 	"github.com/radovskyb/services/user/auth"
 	"github.com/radovskyb/services/user/datastore"
+	"github.com/radovskyb/services/user/session"
 )
 
 type Handler struct {
 	r datastore.UserRepository
 	a auth.Auth
+	s session.Session
 }
 
-func NewHandler(r datastore.UserRepository) *Handler {
-	return &Handler{r: r, a: auth.NewAuth(r)}
+func NewHandler(r datastore.UserRepository, s *sessions.CookieStore) *Handler {
+	return &Handler{
+		r: r,
+		a: auth.NewAuth(r),
+		s: session.NewSession(s),
+	}
 }
 
 func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
@@ -38,5 +45,39 @@ func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+}
+
+func (h *Handler) UserLogin(w http.ResponseWriter, r *http.Request) {
+	var (
+		email    = r.FormValue("email")
+		password = r.FormValue("password")
+	)
+
+	// Make sure the email or password isn't empty.
+	//
+	// Full validation isn't required, since AuthenticateUser will
+	// simply return an error, but it saves a datastore call if
+	// at least a blank email or password check is in place.
+	if email == "" || password == "" {
+		http.Error(w, "email or password is empty", http.StatusBadRequest)
+		return
+	}
+
+	// Authenticate the user.
+	u, err := h.a.AuthenticateUser(email, password)
+	if err != nil {
+		if err != auth.ErrWrongPassword {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	// Set the username to logged in for the session.
+	err = h.s.LogInUser(w, r, u.Username)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }

@@ -129,7 +129,7 @@ func TestUserLoggedIn(t *testing.T) {
 	// Check if the user is logged in for req.
 	loggedIn := sess.UserLoggedIn(req)
 	if loggedIn {
-		t.Error("expected user to not be logged in")
+		t.Error("expected no user to be logged in")
 	}
 
 	rr := httptest.NewRecorder()

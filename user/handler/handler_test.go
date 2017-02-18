@@ -7,29 +7,33 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/gorilla/sessions"
 	"github.com/radovskyb/services/user/datastore"
 )
 
 // setup returns a new httptest server, the user's datastore
 // and a teardown function.
-func setup() (*httptest.Server, datastore.UserRepository, func()) {
+func setup() (*httptest.Server, *Handler, func()) {
 	mockRepo := datastore.NewMockRepo()
+	cs := sessions.NewCookieStore([]byte("secret-session"))
 
-	mux := http.NewServeMux()
-	userHandler := NewHandler(mockRepo)
-	mux.HandleFunc("/register", userHandler.RegisterUser)
+	userHandler := NewHandler(mockRepo, cs)
 
-	s := httptest.NewServer(mux)
+	// mux := http.NewServeMux()
+	// mux.HandleFunc("/register", userHandler.RegisterUser)
+	// mux.HandleFunc("/login", userHandler.UserLogin)
+
+	s := httptest.NewServer(nil)
 	teardown := func() {
 		// Close the server.
 		s.Close()
 	}
 
-	return s, mockRepo, teardown
+	return s, userHandler, teardown
 }
 
 func TestRegisterUser(t *testing.T) {
-	server, mockRepo, teardown := setup()
+	server, uh, teardown := setup()
 	defer teardown()
 
 	var (
@@ -38,27 +42,25 @@ func TestRegisterUser(t *testing.T) {
 		password = "password123"
 	)
 
-	u, err := url.Parse(server.URL + "/register")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	q := u.Query()
-	q.Set("email", email)
-	q.Set("username", username)
-	q.Set("password", password)
-
-	resp, err := http.PostForm(u.String(), q)
+	req, err := http.NewRequest("POST", server.URL, nil)
 	if err != nil {
 		t.Error(err)
 	}
-	defer resp.Body.Close()
+	pf := url.Values{}
+	pf.Set("email", email)
+	pf.Set("username", username)
+	pf.Set("password", password)
+	req.Form = pf
 
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("expected response code to be 200, got %d", resp.StatusCode)
+	rr := httptest.NewRecorder()
+
+	uh.RegisterUser(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected code to be 200, got %d", rr.Code)
 	}
 
-	usr, err := mockRepo.GetByEmail(email)
+	usr, err := uh.r.GetByEmail(email)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +76,7 @@ func TestRegisterUser(t *testing.T) {
 }
 
 func TestRegisterUserWithInvalidData(t *testing.T) {
-	server, _, teardown := setup()
+	server, uh, teardown := setup()
 	defer teardown()
 
 	var (
@@ -83,29 +85,27 @@ func TestRegisterUserWithInvalidData(t *testing.T) {
 		password = "password123"
 	)
 
-	u, err := url.Parse(server.URL + "/register")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	q := u.Query()
-	q.Set("email", email)
-	q.Set("username", username)
-	q.Set("password", password)
-
-	resp, err := http.PostForm(u.String(), q)
+	req, err := http.NewRequest("POST", server.URL, nil)
 	if err != nil {
 		t.Error(err)
 	}
-	defer resp.Body.Close()
+	pf := url.Values{}
+	pf.Set("email", email)
+	pf.Set("username", username)
+	pf.Set("password", password)
+	req.Form = pf
 
-	if resp.StatusCode != http.StatusBadRequest {
-		t.Fatalf("expected response code to be 400, got %d", resp.StatusCode)
+	rr := httptest.NewRecorder()
+
+	uh.RegisterUser(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected code to be 400, got %d", rr.Code)
 	}
 }
 
-func TestRegisterUserAfterTeardown(t *testing.T) {
-	server, mockRepo, teardown := setup()
+func TestRegisterUserAfterRepoClose(t *testing.T) {
+	server, uh, teardown := setup()
 	defer teardown()
 
 	var (
@@ -114,29 +114,84 @@ func TestRegisterUserAfterTeardown(t *testing.T) {
 		password = "password123"
 	)
 
-	u, err := url.Parse(server.URL + "/register")
+	req, err := http.NewRequest("POST", server.URL, nil)
 	if err != nil {
-		t.Fatal(err)
+		t.Error(err)
 	}
+	pf := url.Values{}
+	pf.Set("email", email)
+	pf.Set("username", username)
+	pf.Set("password", password)
+	req.Form = pf
 
-	q := u.Query()
-	q.Set("email", email)
-	q.Set("username", username)
-	q.Set("password", password)
+	rr := httptest.NewRecorder()
 
-	closer, ok := mockRepo.(io.Closer)
+	closer, ok := uh.r.(io.Closer)
 	if !ok {
 		t.Fatal("repo doesn't implement an io.Closer")
 	}
 	closer.Close()
 
-	resp, err := http.PostForm(u.String(), q)
+	uh.RegisterUser(rr, req)
+
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("expected code to be 500, got %d", rr.Code)
+	}
+}
+
+func TestUserLogin(t *testing.T) {
+	server, uh, teardown := setup()
+	defer teardown()
+
+	var (
+		email    = "radovskyb@gmail.com"
+		username = "radovskyb"
+		password = "password123"
+	)
+
+	// Register a user.
+	req, err := http.NewRequest("POST", server.URL, nil)
 	if err != nil {
 		t.Error(err)
 	}
-	defer resp.Body.Close()
+	pf := url.Values{}
+	pf.Set("email", email)
+	pf.Set("username", username)
+	pf.Set("password", password)
+	req.Form = pf
 
-	if resp.StatusCode != http.StatusInternalServerError {
-		t.Fatalf("expected response code to be 500, got %d", resp.StatusCode)
+	rr := httptest.NewRecorder()
+
+	uh.RegisterUser(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected code to be 200, got %d", rr.Code)
+	}
+
+	// Check that there's no user set to logged in for the session.
+	loggedIn := uh.s.UserLoggedIn(req)
+	if loggedIn {
+		t.Error("expected no user to be logged in")
+	}
+
+	// Log the user in.
+	uh.UserLogin(rr, req)
+
+	// Check that now there is a user set to logged in for the session.
+	loggedIn = uh.s.UserLoggedIn(req)
+	if !loggedIn {
+		t.Error("expected user to be logged in")
+	}
+
+	// Get the username of the logged in user.
+	cur, err := uh.s.CurrentUser(req)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Verify that the correct username is returned.
+	if cur != username {
+		t.Errorf("expected logged in username to be %s, got %s",
+			username, cur)
 	}
 }

@@ -13,7 +13,7 @@ import (
 var emailRegexp = regexp.MustCompile("[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,6}")
 
 var (
-	ErrEmptyRequiredField    = errors.New("error: required user field is empty")
+	ErrEmptyRequiredField    = errors.New("error: required field is empty")
 	ErrInvalidUsernameLength = errors.New("error: username must be between 3 - 25 characters")
 	ErrInvalidEmail          = errors.New("error: email is invalid")
 	ErrPasswordTooShort      = errors.New("error: password is too short (must be at least 6 characters)")
