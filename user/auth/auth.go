@@ -50,6 +50,13 @@ type Auth interface {
 	//
 	// If there's no errors, a *user.User will be returned.
 	AuthenticateUser(email, password string) (*user.User, error)
+
+	// CompareHashAndPassword compares to see whether a password is
+	// comparable to a hashed password when it is itself hashed.
+	CompareHashAndPassword(hash, password string) error
+
+	// HashPassword hashes a password.
+	HashPassword(password string) (string, error)
 }
 
 // auth is the default implementation for Auth.
@@ -97,9 +104,7 @@ func (a *auth) CreateUser(u *user.User) error {
 	if err := a.ValidateUser(u); err != nil {
 		return err
 	}
-	hashedPassword, err := bcrypt.GenerateFromPassword(
-		[]byte(u.Password), bcrypt.DefaultCost,
-	)
+	hashedPassword, err := a.HashPassword(u.Password)
 	if err != nil {
 		return err
 	}
@@ -112,14 +117,28 @@ func (a *auth) AuthenticateUser(email, password string) (*user.User, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password))
+	err = a.CompareHashAndPassword(u.Password, password)
+	if err != nil {
+		return nil, err
+	}
+	return u, nil
+}
+
+func (a *auth) CompareHashAndPassword(hash, password string) error {
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	if err == nil {
-		return u, nil
+		return nil
 	}
 	// If the compared passwords don't match, return an ErrWrongPassword.
 	if err == bcrypt.ErrMismatchedHashAndPassword {
-		return nil, ErrWrongPassword
+		return ErrWrongPassword
 	}
-	// If the error was is something else, return it.
-	return nil, err
+	return err
+}
+
+func (a *auth) HashPassword(password string) (string, error) {
+	hashedPassword, err := bcrypt.GenerateFromPassword(
+		[]byte(password), bcrypt.DefaultCost,
+	)
+	return string(hashedPassword), err
 }
