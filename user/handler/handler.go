@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/sessions"
 	"github.com/radovskyb/services/user"
@@ -41,6 +42,75 @@ func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	if err := h.a.CreateUser(u); err != nil {
 		if auth.IsValidationErr(err) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
+	var (
+		id       = r.FormValue("id")
+		email    = r.FormValue("email")
+		username = r.FormValue("username")
+		password = r.FormValue("password")
+	)
+
+	// TODO: Add in field validation here.
+
+	// Get the current logged in user's username from the session.
+	cur, err := h.s.CurrentUser(r)
+	if err != nil {
+		if err == session.ErrUserNotSet {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Convert id to an integer.
+	uid, err := strconv.Atoi(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Get the user for the associated uid.
+	u, err := h.r.Get(int64(uid))
+	if err != nil {
+		if err == datastore.ErrUserNotFound {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Make sure that u's username matches cur. (invalid username for session)
+	if cur != u.Username {
+		http.Error(w, datastore.ErrUserNotFound.Error(), http.StatusNotFound)
+		return
+	}
+
+	// Hash the updated password.
+	hashedPassword, err := h.a.HashPassword(password)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Finally update the user with the new fields.
+	err = h.r.Update(&user.User{
+		Id:       int64(uid),
+		Email:    email,
+		Username: username,
+		Password: string(hashedPassword),
+	})
+	if err != nil {
+		if err == datastore.ErrUserNotFound {
+			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
