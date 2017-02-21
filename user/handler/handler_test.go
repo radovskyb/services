@@ -73,46 +73,27 @@ func TestRegisterUser(t *testing.T) {
 	if usr.Id != 1 {
 		t.Errorf("expected id to be 1, got %d", usr.Id)
 	}
-}
 
-func TestRegisterUserWithInvalidData(t *testing.T) {
-	uh := setup()
-
+	// Try to register a user with invalid data.
 	invalidEmail := "invalid@email"
-
-	req, err := http.NewRequest("POST", server.URL, nil)
-	if err != nil {
-		t.Error(err)
-	}
-	pf := url.Values{}
 	pf.Set("email", invalidEmail)
-	pf.Set("username", testUsername)
-	pf.Set("password", testPassword)
 	req.Form = pf
 
-	rr := httptest.NewRecorder()
+	rr = httptest.NewRecorder()
 
 	uh.RegisterUser(rr, req)
 
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("expected code to be 400, got %d", rr.Code)
 	}
-}
 
-func TestRegisterUserAfterRepoClose(t *testing.T) {
-	uh := setup()
-
-	req, err := http.NewRequest("POST", server.URL, nil)
-	if err != nil {
-		t.Error(err)
-	}
-	pf := url.Values{}
+	// Try to register a user after the user repo is closed.
+	//
+	// Set the email back to a valid email.
 	pf.Set("email", testEmail)
-	pf.Set("username", testUsername)
-	pf.Set("password", testPassword)
 	req.Form = pf
 
-	rr := httptest.NewRecorder()
+	rr = httptest.NewRecorder()
 
 	closer, ok := uh.r.(io.Closer)
 	if !ok {
@@ -136,12 +117,26 @@ func TestUpdateUser(t *testing.T) {
 		t.Error(err)
 	}
 	pf := url.Values{}
-	pf.Set("email", testEmail)
+	pf.Set("id", "1")
+	pf.Set("email", "invalidemail")
 	pf.Set("username", testUsername)
 	pf.Set("password", testPassword)
 	req.Form = pf
 
 	rr := httptest.NewRecorder()
+
+	// Try to update a user with invalid data.
+	uh.UpdateUser(rr, req)
+
+	// Set the email back to a valid email.
+	pf.Set("email", testEmail)
+	req.Form = pf
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected code to be 400, got %d", rr.Code)
+	}
+
+	rr = httptest.NewRecorder()
 
 	uh.RegisterUser(rr, req)
 
@@ -166,7 +161,6 @@ func TestUpdateUser(t *testing.T) {
 	}
 
 	// Try to update a user with a invalid id.
-	pf = url.Values{}
 	pf.Set("id", "abc")
 	req.Form = pf
 
@@ -179,7 +173,6 @@ func TestUpdateUser(t *testing.T) {
 	// Try to update a user with an id that isn't found.
 	rr = httptest.NewRecorder()
 
-	pf = url.Values{}
 	pf.Set("id", "2")
 	req.Form = pf
 
@@ -190,7 +183,6 @@ func TestUpdateUser(t *testing.T) {
 	}
 
 	// Update the user's email.
-	pf = url.Values{}
 	pf.Set("id", "1")
 	pf.Set("email", "newemail@gmail.com")
 	pf.Set("username", testUsername)
@@ -317,7 +309,6 @@ func TestUserLoginWithInvalidData(t *testing.T) {
 	// Try to log the user in with empty values.
 	rr = httptest.NewRecorder()
 
-	pf = url.Values{}
 	pf.Set("email", "")
 	pf.Set("password", "")
 	req.Form = pf
@@ -336,7 +327,6 @@ func TestUserLoginWithInvalidData(t *testing.T) {
 	// Try to log the user in with a non existing user.
 	rr = httptest.NewRecorder()
 
-	pf = url.Values{}
 	pf.Set("email", "doesntexist@example.com")
 	pf.Set("password", testPassword)
 	req.Form = pf
@@ -355,7 +345,6 @@ func TestUserLoginWithInvalidData(t *testing.T) {
 	// Try to log the user in with an incorrect password.
 	rr = httptest.NewRecorder()
 
-	pf = url.Values{}
 	pf.Set("email", testEmail)
 	pf.Set("password", "wrongpassword")
 	req.Form = pf
@@ -384,23 +373,10 @@ func TestUserLoginAfterRepoClose(t *testing.T) {
 	}
 	pf := url.Values{}
 	pf.Set("email", testEmail)
-	pf.Set("username", testUsername)
 	pf.Set("password", testPassword)
 	req.Form = pf
-
-	uh.RegisterUser(rr, req)
-
-	if rr.Code != http.StatusOK {
-		t.Fatalf("expected code to be 200, got %d", rr.Code)
-	}
 
 	// Try to log the user in.
-	rr = httptest.NewRecorder()
-
-	pf = url.Values{}
-	pf.Set("email", testEmail)
-	pf.Set("password", testPassword)
-	req.Form = pf
 
 	// Close the user repository.
 	closer, ok := uh.r.(io.Closer)

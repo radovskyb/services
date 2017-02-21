@@ -57,7 +57,22 @@ func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		password = r.FormValue("password")
 	)
 
-	// TODO: Add in field validation here.
+	// Convert id to an integer.
+	uid, err := strconv.Atoi(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	err = h.a.ValidateUser(&user.User{
+		Email:    email,
+		Username: username,
+		Password: password,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
 	// Get the current logged in user's username from the session.
 	cur, err := h.s.CurrentUser(r)
@@ -67,13 +82,6 @@ func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Convert id to an integer.
-	uid, err := strconv.Atoi(id)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -101,20 +109,19 @@ func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Update the user's fields.
+	u.Email = email
+	u.Username = username
+	u.Password = hashedPassword
+
 	// Finally update the user with the new fields.
-	err = h.r.Update(&user.User{
-		Id:       int64(uid),
-		Email:    email,
-		Username: username,
-		Password: string(hashedPassword),
-	})
+	err = h.r.Update(u)
 	if err != nil {
 		if err == datastore.ErrUserNotFound {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
 	}
 }
 
@@ -164,6 +171,5 @@ func (h *Handler) UserLogout(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
 	}
 }
