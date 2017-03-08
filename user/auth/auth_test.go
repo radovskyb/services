@@ -15,11 +15,12 @@ const (
 )
 
 func TestIsValidationErr(t *testing.T) {
-	isValErr := IsValidationErr(ErrInvalidEmail)
+	a := NewAuth(nil)
+	isValErr := a.IsValidationErr(ErrInvalidEmail)
 	if !isValErr {
 		t.Error("expected err to be a validation error")
 	}
-	isValErr = IsValidationErr(errors.New("error: random error"))
+	isValErr = a.IsValidationErr(errors.New("error: random error"))
 	if isValErr {
 		t.Error("expected err to not be a validation error")
 	}

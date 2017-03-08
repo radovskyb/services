@@ -21,18 +21,6 @@ var (
 	ErrWrongPassword         = errors.New("error: incorrect password")
 )
 
-func IsValidationErr(err error) bool {
-	switch err {
-	case ErrEmptyRequiredField,
-		ErrInvalidUsernameLength,
-		ErrInvalidEmail,
-		ErrPasswordTooShort,
-		ErrInvalidUsername:
-		return true
-	}
-	return false
-}
-
 type Auth interface {
 	// CreateUser hashes a user's password and then stores
 	// the user in a user repository.
@@ -41,6 +29,10 @@ type Auth interface {
 	// ValidateUser checks to see if the fields of a user are
 	// valid to be used with the user's repository.
 	ValidateUser(u *user.User) error
+
+	// IsValidationErr checks if the specified error is a
+	// validation error.
+	IsValidationErr(err error) bool
 
 	// AuthenticateUser authenticates a user from a user's
 	// email and password.
@@ -68,6 +60,18 @@ type auth struct {
 // user repository.
 func NewAuth(userRepo datastore.UserRepository) Auth {
 	return &auth{r: userRepo}
+}
+
+func (a *auth) IsValidationErr(err error) bool {
+	switch err {
+	case ErrEmptyRequiredField,
+		ErrInvalidUsernameLength,
+		ErrInvalidEmail,
+		ErrPasswordTooShort,
+		ErrInvalidUsername:
+		return true
+	}
+	return false
 }
 
 func (a *auth) ValidateUser(u *user.User) error {

@@ -40,7 +40,7 @@ func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 
 	// Create the user in the user repository.
 	if err := h.a.CreateUser(u); err != nil {
-		if auth.IsValidationErr(err) {
+		if h.a.IsValidationErr(err) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
