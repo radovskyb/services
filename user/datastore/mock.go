@@ -32,9 +32,13 @@ func NewMockRepo() UserRepository {
 // io.Closer interface, which can be useful for testing
 // when wanting to `cut` the connection to the mockRepo.
 func (s *mockRepo) Close() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	s.users = nil
 	s.emails = nil
 	s.usernames = nil
+
 	return nil
 }
 
